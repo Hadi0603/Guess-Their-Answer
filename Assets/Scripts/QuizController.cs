@@ -1,98 +1,104 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SocialPlatforms.Impl;
 using UnityEngine.UI;
+using TMPro;
+using UnityEngine.Serialization;
 
 public class QuizController : MonoBehaviour
 {
-    [SerializeField] InputField inputField;
-    [SerializeField] Text responseText;
+    [Header("Serialized References")]
+    [SerializeField] private Text inputText;
+    [SerializeField] private Text responseText;
     [SerializeField] private Text scoreText;
-    [SerializeField] string[] answers;
-    [SerializeField] private int[] scores;
-    [SerializeField] UIManager uiManager;
-    private int Score;
+    [FormerlySerializedAs("answers")] [SerializeField] private string[] answerData;
+    [FormerlySerializedAs("scores")] [SerializeField] private int[] scoreData;
+    [SerializeField] private UIManager uiManager;
 
-    private TouchScreenKeyboard keyboard;
+    [Header("Public Static References")]
+    public static string[] answers;
+    public static int[] scores;
+    public static bool[] answered;
+    
+    private string currentInput = "";
+    [HideInInspector]
+    public int Score = 0;
 
     void Start()
     {
-        OpenKeyboard();
-        Score = 0;
+        answers = answerData;
+        scores = scoreData;
+        answered = new bool[answers.Length];
+        
         responseText.enabled = false;
         UpdateScore();
+        inputText.text = "";
+
+        answered = new bool[answerData.Length];
     }
 
-    public void OpenKeyboard()
+    public void UpdateInputText(string newText)
     {
-        inputField.ActivateInputField();
-        keyboard = TouchScreenKeyboard.Open("", TouchScreenKeyboardType.Default);
-    }
-
-    public void CloseKeyboard()
-    {
-        inputField.DeactivateInputField();
-        if (keyboard != null)
-        {
-            keyboard.active = false;
-            keyboard = null;
-        }
-    }
-
-    void Update()
-    {
-        if (keyboard != null)
-        {
-            if (keyboard.status == TouchScreenKeyboard.Status.Done ||
-                keyboard.status == TouchScreenKeyboard.Status.Canceled ||
-                keyboard.status == TouchScreenKeyboard.Status.LostFocus)
-            {
-                Debug.Log("Keyboard closed. Input: " + keyboard.text);
-                CloseKeyboard();
-            }
-        }
+        inputText.text += newText;
     }
 
     public void EnterBtn()
     {
         FormatInputText();
-        string input = inputField.text;
-        for (int i = 0; i < answers.Length; i++)
+        string input = inputText.text;
+
+        bool matched = false;
+
+        for (int i = 0; i < answerData.Length; i++)
         {
-            if (!string.IsNullOrEmpty(answers[i]) && input.Contains(answers[i]))
+            if (!string.IsNullOrEmpty(answerData[i]) && input.Contains(answerData[i]))
             {
-                Debug.Log("Match found: " + answers[i]);
-                responseText.enabled = true;
-                responseText.text = answers[i] + "  " + scores[i];
-                Score += scores[i];
-                UpdateScore();
-                if (Score == 100)
+                if (answered[i])
                 {
-                    uiManager.TriggerGameWon();
+                    Debug.Log("Already answered: " + answerData[i]);
+                    responseText.enabled = true;
+                    responseText.text = "Already answered!";
                 }
-                input = input.Replace(answers[i], "");
-                answers[i] = null;
+                else
+                {
+                    Debug.Log("Match found: " + answerData[i]);
+                    responseText.enabled = true;
+                    responseText.text = answerData[i] + "  " + scoreData[i];
+                    Score += scoreData[i];
+                    UpdateScore();
+                    answered[i] = true;
+                    CheckGameWon();
+                    /*if (Score == 100)
+                    {
+                        uiManager.TriggerGameWon();
+                    }*/
+
+                }
+
+                matched = true;
                 break;
-            }
-            else
-            {
-                Debug.Log("Match not found.");
-                responseText.enabled = true;
-                responseText.text = "Wrong Answer";
             }
         }
 
-        inputField.text = "";
+        if (!matched)
+        {
+            Debug.Log("Match not found.");
+            responseText.enabled = true;
+            responseText.text = "Wrong Answer";
+        }
+
+        currentInput = "";
+        inputText.text = "";
     }
+
     void FormatInputText()
     {
-        string input = inputField.text.Trim();
+        string input = inputText.text.Trim();
 
         if (!string.IsNullOrEmpty(input))
         {
             string formatted = char.ToUpper(input[0]) + input.Substring(1).ToLower();
-            inputField.text = formatted;
+            inputText.text = formatted;
             Debug.Log("Formatted Input: " + formatted);
         }
     }
@@ -100,5 +106,29 @@ public class QuizController : MonoBehaviour
     void UpdateScore()
     {
         scoreText.text = "Score: " + Score.ToString();
+    }
+    public void AddLetter(string letter)
+    {
+        currentInput += letter;
+        inputText.text = currentInput;
+    }
+
+    public void DeleteLastLetter()
+    {
+        if (!string.IsNullOrEmpty(currentInput))
+        {
+            currentInput = currentInput.Substring(0, currentInput.Length - 1);
+            inputText.text = currentInput;
+        }
+    }
+    void CheckGameWon()
+    {
+        foreach (bool isAnswered in answered)
+        {
+            if (!isAnswered)
+                return;
+        }
+
+        uiManager.TriggerGameOver();
     }
 }
