@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
@@ -10,10 +11,14 @@ public class UIManager : MonoBehaviour
     private bool isBlinking = false;
     private bool isPaused = false;
     [SerializeField] private Text timerText;
-    [SerializeField] private GameObject levelWonUI;
-    [SerializeField] private GameObject leveLostUI;
+    [SerializeField] private GameObject gameOverUI;
     [SerializeField] GameObject pauseUI;
+    [SerializeField] Text finalScoresText;
+    [SerializeField] Text resultText;
+    [SerializeField] private GameObject nextBtn;
+    [SerializeField] private GameObject retryBtn;
     [SerializeField] QuizController quizController;
+    [SerializeField] AiController aiController;
 
     private void Awake()
     {
@@ -25,7 +30,7 @@ public class UIManager : MonoBehaviour
     {
         while (gameTime > 0)
         {
-            if (!isPaused) // Only update the timer if the game is not paused
+            if (!isPaused)
             {
                 gameTime -= Time.deltaTime;
                 UpdateTimerDisplay();
@@ -38,7 +43,7 @@ public class UIManager : MonoBehaviour
             yield return null;
         }
 
-        GameOver();
+        TriggerGameOver();
     }
 
     private void UpdateTimerDisplay()
@@ -63,15 +68,8 @@ public class UIManager : MonoBehaviour
         isBlinking = false;
     }
 
-    void GameOver()
-    {
-        quizController.CloseKeyboard();
-        leveLostUI.SetActive(true);
-    }
-
     public void OpenPauseMenu()
     {
-        quizController.CloseKeyboard();
         pauseUI.SetActive(true);
         Time.timeScale = 0f;
     }
@@ -80,18 +78,41 @@ public class UIManager : MonoBehaviour
     {
         pauseUI.SetActive(false);
         Time.timeScale = 1f;
-        quizController.OpenKeyboard();
     }
-    public void TriggerGameWon()
+    public void TriggerGameOver()
     {
-        quizController.CloseKeyboard();
-        levelWonUI.gameObject.SetActive(true);
+        gameOverUI.gameObject.SetActive(true);
+        int playerScore = quizController.Score;
+        int aiScore = aiController.aiScore;
+        finalScoresText.text = $"Player Score: {playerScore}\nAI Score: {aiScore}";
+        if (playerScore > aiScore)
+        {
+            resultText.text = "You Win!";
+            nextBtn.SetActive(true);
+            retryBtn.SetActive(false);
+            if (GameController.levelToLoad < 5)
+            {
+                PlayerPrefs.SetInt("levelToLoad", ++GameController.levelToLoad);
+            }
+            PlayerPrefs.Save();
+        }
+        else if (playerScore == aiScore)
+        {
+            resultText.text = "Draw!";
+            nextBtn.SetActive(false);
+            retryBtn.SetActive(true);
+        }
+        else
+        {
+            resultText.text = "You Lose!";
+            nextBtn.SetActive(false);
+            retryBtn.SetActive(true);
+        }
+
         StopCoroutine(TimerCountdown());
         Destroy(timerText);
-        if (GameManager.levelToLoad < 5)
-        {
-            PlayerPrefs.SetInt("levelToLoad", ++GameManager.levelToLoad);
-        }
-        PlayerPrefs.Save();
+
+        
     }
+
 }
